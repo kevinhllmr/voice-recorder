@@ -17,6 +17,7 @@ class VoiceRecorderApp:
         self.player = Player(self.on_playback_end)
 
         button_frame = tk.Frame(self.master)
+
         button_frame.pack(pady=10)
 
         self.record_toggle_button = tk.Button(button_frame, text="●", font=("FontAwesome", 24), command=self.toggle_recording, width=5, height=2, fg="red")
@@ -95,5 +96,6 @@ class VoiceRecorderApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    root.wm_title("Crazy Voice Recorder")
     app = VoiceRecorderApp(root)
     root.mainloop()

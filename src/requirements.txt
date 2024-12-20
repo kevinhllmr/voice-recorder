@@ -1,0 +1,4 @@
+pyaudio
+tk
+waveform
+matplotlib

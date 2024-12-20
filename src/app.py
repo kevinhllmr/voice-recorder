@@ -1,10 +1,10 @@
 import tkinter as tk
-from threading import Thread
+from tkinter import ttk
+
 from recorder import Recorder
 from player import Player
 from waveform import Waveform
 import os
-
 
 class VoiceRecorderApp:
     def __init__(self, master):
@@ -17,7 +17,6 @@ class VoiceRecorderApp:
         self.player = Player(self.on_playback_end)
 
         button_frame = tk.Frame(self.master)
-
         button_frame.pack(pady=10)
 
         self.record_toggle_button = tk.Button(button_frame, text="●", font=("FontAwesome", 24), command=self.toggle_recording, width=5, height=2, fg="red")
@@ -28,6 +27,12 @@ class VoiceRecorderApp:
 
         self.stop_button = tk.Button(button_frame, text="■", font=("FontAwesome", 24), command=self.stop_playback, width=5, height=2, fg="black")
         self.stop_button.pack(side='left', padx=5)
+
+        self.volume_slider = ttk.Scale(self.master, from_=0, to_=2, orient='horizontal', command=self.update_volume)
+        self.volume_slider.pack(pady=10)
+
+        self.speed_slider = ttk.Scale(self.master, from_=0.5, to_=2, orient='horizontal', command=self.update_speed)
+        self.speed_slider.pack(pady=10)
 
         self.update_buttons_state()
 
@@ -42,15 +47,17 @@ class VoiceRecorderApp:
         self.update_buttons_state()
 
         def record():
-            self.recorder.start_recording(self.waveform.update)
-
-        Thread(target=record, daemon=True).start()
+            self.recorder.start_recording(lambda data: self.update_waveform_in_main_thread(data))
 
     def stop_recording(self):
         self.recorder.stop_recording()
         self.recording_state = "IDLE"
-        self.recorder.save_recording()
+        self.recorder.save_recording(self.audio_file)
         self.update_buttons_state()
+
+    def update_waveform_in_main_thread(self, data):
+        """Aktualisiert die Wellenform sicher im Haupt-Thread."""
+        self.master.after(0, self.waveform.update, data)
 
     def toggle_play_pause(self):
         if self.player.playing:
@@ -60,7 +67,7 @@ class VoiceRecorderApp:
             if not os.path.exists(self.audio_file):
                 return
             self.recording_state = "PLAYING"
-            Thread(target=self.player.play, args=(self.update_waveform_in_main_thread,), daemon=True).start()
+            self.player.play(self.update_waveform_in_main_thread)  # Entfernt Thread für Playback
         self.update_buttons_state()
 
     def stop_playback(self):
@@ -92,6 +99,14 @@ class VoiceRecorderApp:
             self.record_toggle_button.config(state='disabled', text="●", font=("FontAwesome", 24), fg="red")
             self.play_pause_button.config(state='normal', text="▶", font=("FontAwesome", 24), fg="green")
             self.stop_button.config(state='normal', text="■", font=("FontAwesome", 24), fg="black")
+
+    def update_volume(self, value):
+        volume = float(value)
+        self.player.set_volume(volume)
+
+    def update_speed(self, value):
+        speed = float(value)
+        self.player.set_speed(speed)
 
 
 if __name__ == "__main__":

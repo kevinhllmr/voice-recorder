@@ -1,5 +1,6 @@
 import pyaudio
 import wave
+import numpy as np
 
 class Recorder:
     def __init__(self):
@@ -7,6 +8,26 @@ class Recorder:
         self.stream = None
         self.frames = []
         self.recording = False
+        self.live_playback = False
+        self.live_stream = None
+
+    def enable_live_playback(self):
+        self.live_playback = True
+        if not self.live_stream:
+            self.live_stream = self.audio.open(
+                format=pyaudio.paInt16, 
+                channels=1, 
+                rate=44100, 
+                output=True, 
+                frames_per_buffer=1024
+            )
+
+    def disable_live_playback(self):
+        self.live_playback = False
+        if self.live_stream:
+            self.live_stream.stop_stream()
+            self.live_stream.close()
+            self.live_stream = None
 
     def start_recording(self, waveform_callback=None):
         self.frames = []
@@ -21,8 +42,14 @@ class Recorder:
             while self.recording:
                 data = self.stream.read(chunk, exception_on_overflow=False)
                 self.frames.append(data)
+
                 if waveform_callback:
                     waveform_callback(data)
+
+                if self.live_playback and self.live_stream:
+                    audio_data = np.frombuffer(data, dtype=np.int16)
+                    self.live_stream.write(audio_data.tobytes())
+
         except Exception as e:
             print(f"Error during recording: {e}")
         finally:
@@ -50,5 +77,8 @@ class Recorder:
             print(f"Error saving recording: {e}")
 
     def close(self):
+        if self.live_stream:
+            self.live_stream.stop_stream()
+            self.live_stream.close()
         self.audio.terminate()
         print("Recorder closed.")

@@ -12,7 +12,7 @@ class VoiceRecorderApp:
         self.recorder = Recorder()
         self.waveform = Waveform(self.master)
         self.audio_file = "recording.wav"
-
+        
         self.recording_state = "IDLE"
         self.player = Player(self.on_playback_end)
 
@@ -41,9 +41,18 @@ class VoiceRecorderApp:
         self.speed_slider.set(1.0) 
         self.speed_slider.pack(side='left', padx=5)
 
-        self.update_buttons_state()
+        self.live_playback_var = tk.IntVar(value=0)  
+        self.live_playback_checkbox = tk.Checkbutton(self.master, text="Live Playback", variable=self.live_playback_var, command=self.toggle_live_playback)
+        self.live_playback_checkbox.pack(pady=10)
 
+        self.update_buttons_state()
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def toggle_live_playback(self):
+        if self.live_playback_var.get():
+            self.recorder.enable_live_playback()
+        else:
+            self.recorder.disable_live_playback()
 
     def toggle_recording(self):
         if self.recording_state == "RECORDING":

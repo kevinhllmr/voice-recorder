@@ -5,14 +5,22 @@ from player import Player
 from waveform import Waveform
 import os
 from threading import Thread
+from echo import echo 
 
 class VoiceRecorderApp:
     def __init__(self, master):
         self.master = master
+        self.master = master
+        main_frame= tk.Frame(self.master)
+        main_frame.pack(padx=20, pady=20)
+        
+        tk.Label(main_frame, text="Crazy Voice Recorder", font=("FontAwesome", 24)).grid(row=0, column=0, columnspan=2, pady=10)
+
+        
         self.recorder = Recorder()
         self.waveform = Waveform(self.master)
         self.audio_file = "recording.wav"
-
+                
         self.recording_state = "IDLE"
         self.player = Player(self.on_playback_end)
 
@@ -31,20 +39,38 @@ class VoiceRecorderApp:
         slider_frame = tk.Frame(self.master)
         slider_frame.pack(pady=10)
 
-        tk.Label(slider_frame, text="Volume").pack(side='left', padx=5)
+        tk.Label(slider_frame, text="Lautstärke").pack(side='left', padx=5)
         self.volume_slider = ttk.Scale(slider_frame, from_=0, to_=2, orient='horizontal', command=self.update_volume)
         self.volume_slider.set(1.0)
         self.volume_slider.pack(side='left', padx=5)
 
-        tk.Label(slider_frame, text="Speed").pack(side='left', padx=5)
+        tk.Label(slider_frame, text="Geschwindigkeit").pack(side='left', padx=5)
         self.speed_slider = ttk.Scale(slider_frame, from_=0.5, to_=2, orient='horizontal', command=self.update_speed)
         self.speed_slider.set(1.0) 
         self.speed_slider.pack(side='left', padx=5)
+        
+        #self.echo_button = tk.Button(button_frame, text="Echo", font=("Arial", 12), command=self.add_echo_effect, width=10)
+        #self.echo_button.pack(side='left', padx=5)
+
+        self.echo_var = tk.BooleanVar()  
+        self.echo_checkbutton = tk.Checkbutton(self.master, text="Echo-Effekt", variable=self.echo_var, command=self.update_echo_effect)
+        self.echo_checkbutton.pack(pady=5)
+        
+        tk.Label(self.master, text="Verzögerung (ms)").pack(pady=5)
+        self.delay_slider = ttk.Scale(self.master, from_=100, to_=2000, orient='horizontal')
+        self.delay_slider.set(500)
+        self.delay_slider.pack(pady=5)
+
+        tk.Label(self.master, text="Abklingen").pack(pady=5)
+        self.decay_slider = ttk.Scale(self.master, from_=0.1, to_=1.0, orient='horizontal')
+        self.decay_slider.set(0.6)
+        self.decay_slider.pack(pady=5)
+
 
         self.update_buttons_state()
 
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
-
+                   
     def toggle_recording(self):
         if self.recording_state == "RECORDING":
             self.stop_recording()
@@ -77,7 +103,10 @@ class VoiceRecorderApp:
             self.recording_state = "PLAYING"
 
             def play():
-                self.player.play(self.update_waveform_in_main_thread)
+                if self.echo_var.get():  
+                    self.player.play(update_waveform_callback=self.update_waveform_in_main_thread, file=self.effect_file)
+                else:
+                    self.player.play(update_waveform_callback=self.update_waveform_in_main_thread, file=self.audio_file)
 
             self.playback_thread = Thread(target=play, daemon=True)
             self.playback_thread.start()
@@ -95,6 +124,29 @@ class VoiceRecorderApp:
     def on_playback_end(self):
         self.recording_state = "IDLE"
         self.update_buttons_state()
+    
+    def add_echo_effect(self):
+        if not os.path.exists(self.audio_file):
+            print("Keine Aufnahme gefunden!")
+            return
+        self.effect_file = "recording_with_echo.wav"
+        delay = int(self.delay_slider.get())
+        decay = float(self.decay_slider.get())
+        try:
+            echo.add_echo(self.audio_file, self.effect_file, delay_ms=delay, decay=decay)
+            print(f"Echo-Effekt angewendet und gespeichert in {self.effect_file}")
+        except Exception as e:
+            print(f"Fehler beim Anwenden des Echo-Effekts: {e}")
+            
+            
+    def update_echo_effect(self):
+        """Aktualisiert den Effekt, je nachdem, ob der Haken gesetzt ist oder nicht"""
+        if self.echo_var.get():  #
+            print("Echo-Effekt wird angewendet.")
+            self.add_echo_effect()
+        else:
+            print("Echo-Effekt deaktiviert.")
+
 
     def update_buttons_state(self):
         if self.recording_state == "IDLE":

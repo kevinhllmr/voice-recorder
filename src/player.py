@@ -17,15 +17,15 @@ class Player:
     def set_speed(self, speed):
         self.speed = max(0.5, min(2.0, speed))
 
-    def play(self, update_waveform_callback):
+    def play(self, update_waveform_callback, file="recording.wav"):
         if not self.playing:
             self.playing = True
             if not self.paused:
-                self.playback_position = 0
+                self.playback_position = 0   
             self.paused = False
             chunk = 1024
             audio = pyaudio.PyAudio()
-            with wave.open("recording.wav", 'rb') as wf:
+            with wave.open(file, 'rb') as wf:
                 wf.setpos(self.playback_position)
                 output_stream = audio.open(
                     format=audio.get_format_from_width(wf.getsampwidth()),

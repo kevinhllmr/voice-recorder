@@ -5,14 +5,19 @@ from player import Player
 from waveform import Waveform
 import os
 from threading import Thread
+from echo import echo 
 
 class VoiceRecorderApp:
     def __init__(self, master):
         self.master = master
+        self.master = master
+        main_frame= tk.Frame(self.master)
+        main_frame.pack(padx=20, pady=20)
+        
         self.recorder = Recorder()
         self.waveform = Waveform(self.master)
         self.audio_file = "recording.wav"
-        
+                
         self.recording_state = "IDLE"
         self.player = Player(self.on_playback_end)
 
@@ -31,21 +36,45 @@ class VoiceRecorderApp:
         slider_frame = tk.Frame(self.master)
         slider_frame.pack(pady=10)
 
-        tk.Label(slider_frame, text="Volume").pack(side='left', padx=5)
+        self.live_playback_var = tk.IntVar(value=0)
+        self.live_playback_checkbox = tk.Checkbutton(slider_frame, text="Live Playback", variable=self.live_playback_var, command=self.toggle_live_playback)
+        self.live_playback_checkbox.pack(side='left', padx=10)
+
+        tk.Label(slider_frame, text="Lautstärke").pack(side='left', padx=5)
         self.volume_slider = ttk.Scale(slider_frame, from_=0, to_=2, orient='horizontal', command=self.update_volume)
         self.volume_slider.set(1.0)
         self.volume_slider.pack(side='left', padx=5)
 
-        tk.Label(slider_frame, text="Speed").pack(side='left', padx=5)
+        tk.Label(slider_frame, text="Geschwindigkeit").pack(side='left', padx=5)
         self.speed_slider = ttk.Scale(slider_frame, from_=0.5, to_=2, orient='horizontal', command=self.update_speed)
         self.speed_slider.set(1.0) 
         self.speed_slider.pack(side='left', padx=5)
 
-        self.live_playback_var = tk.IntVar(value=0)  
-        self.live_playback_checkbox = tk.Checkbutton(self.master, text="Live Playback", variable=self.live_playback_var, command=self.toggle_live_playback)
-        self.live_playback_checkbox.pack(pady=10)
+        echo_frame = tk.Frame(self.master)
+        echo_frame.pack(pady=5)
+
+        self.echo_var = tk.BooleanVar()  
+        self.echo_checkbutton = tk.Checkbutton(echo_frame, text="Echo-Effekt", variable=self.echo_var, command=self.update_echo_effect)
+        self.echo_checkbutton.pack(side='left', padx=5)
+
+        tk.Label(echo_frame, text="Verzögerung (ms)").pack(side='left', padx=5)
+        self.delay_slider = ttk.Scale(echo_frame, from_=100, to_=2000, orient='horizontal', length=150, command=self.update_echo_effect)
+        self.delay_slider.set(500)
+        self.delay_slider.pack(side='left', padx=5)
+
+        self.delay_value_label = tk.Label(echo_frame, text="500")
+        self.delay_value_label.pack(side='left', padx=5)
+
+        tk.Label(echo_frame, text="Abklingen").pack(side='left', padx=5)
+        self.decay_slider = ttk.Scale(echo_frame, from_=0.1, to_=1.0, orient='horizontal', length=150, command=self.update_echo_effect)
+        self.decay_slider.set(0.6)
+        self.decay_slider.pack(side='left', padx=5)
+
+        self.decay_value_label = tk.Label(echo_frame, text="0.6") 
+        self.decay_value_label.pack(side='left', padx=5)
 
         self.update_buttons_state()
+
         self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def toggle_live_playback(self):
@@ -53,7 +82,7 @@ class VoiceRecorderApp:
             self.recorder.enable_live_playback()
         else:
             self.recorder.disable_live_playback()
-
+                   
     def toggle_recording(self):
         if self.recording_state == "RECORDING":
             self.stop_recording()
@@ -86,7 +115,17 @@ class VoiceRecorderApp:
             self.recording_state = "PLAYING"
 
             def play():
-                self.player.play(self.update_waveform_in_main_thread)
+                if self.echo_var.get():  
+                    processed_audio, params = echo.apply_echo(self.audio_file, 
+                                                            delay_ms=int(self.delay_slider.get()), 
+                                                            decay=float(self.decay_slider.get()))
+                    if processed_audio:
+                        self.player.play(update_waveform_callback=self.update_waveform_in_main_thread, 
+                                        raw_audio=processed_audio, 
+                                        params=params)
+                else:
+                    self.player.play(update_waveform_callback=self.update_waveform_in_main_thread, 
+                                    file=self.audio_file)
 
             self.playback_thread = Thread(target=play, daemon=True)
             self.playback_thread.start()
@@ -104,6 +143,27 @@ class VoiceRecorderApp:
     def on_playback_end(self):
         self.recording_state = "IDLE"
         self.update_buttons_state()
+    
+    def add_echo_effect(self, delay, decay):
+        if not os.path.exists(self.audio_file):
+            print("Keine Aufnahme gefunden!")
+            return
+        
+        try:
+            echo.apply_echo(self.audio_file, delay_ms=delay, decay=decay)
+        except Exception as e:
+            print(f"Fehler beim Anwenden des Echo-Effekts: {e}")
+                      
+    def update_echo_effect(self, event=None):
+        if hasattr(self, 'decay_slider') and hasattr(self, 'decay_value_label'):
+            delay = int(self.delay_slider.get())
+            decay = float(self.decay_slider.get())
+
+            self.delay_value_label.config(text=str(delay))
+            self.decay_value_label.config(text=f"{decay:.2f}")
+
+            if self.echo_var.get():
+                self.add_echo_effect(delay, decay)
 
     def update_buttons_state(self):
         if self.recording_state == "IDLE":

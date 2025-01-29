@@ -6,6 +6,7 @@ from waveform import Waveform
 import os
 from threading import Thread
 from echo import echo 
+import autotune  
 
 class VoiceRecorderApp:
     def __init__(self, master):
@@ -16,7 +17,7 @@ class VoiceRecorderApp:
         
         self.recorder = Recorder()
         self.waveform = Waveform(self.master)
-        self.audio_file = "recording.wav"
+        self.audio_file = os.path.join(os.path.dirname(__file__), "recording.wav")
                 
         self.recording_state = "IDLE"
         self.player = Player(self.on_playback_end)
@@ -49,6 +50,9 @@ class VoiceRecorderApp:
         self.speed_slider = ttk.Scale(slider_frame, from_=0.5, to_=2, orient='horizontal', command=self.update_speed)
         self.speed_slider.set(1.0) 
         self.speed_slider.pack(side='left', padx=5)
+
+        self.autotune_button = tk.Button(slider_frame, text="Autotune", font=("Arial", 10), command=self.apply_autotune, width=8, height=1, fg="black")
+        self.autotune_button.pack(side='left', padx=5)
 
         echo_frame = tk.Frame(self.master)
         echo_frame.pack(pady=5)
@@ -164,6 +168,19 @@ class VoiceRecorderApp:
 
             if self.echo_var.get():
                 self.add_echo_effect(delay, decay)
+
+    def apply_autotune(self):
+        if os.path.exists(self.audio_file):
+            def autotune_thread():
+                try:
+                    autotune.main()
+                    print("Autotune applied successfully!")
+                except Exception as e:
+                    print(f"Error applying autotune: {e}")
+
+            Thread(target=autotune_thread, daemon=True).start()
+        else:
+            print("Recording not found!")
 
     def update_buttons_state(self):
         if self.recording_state == "IDLE":
